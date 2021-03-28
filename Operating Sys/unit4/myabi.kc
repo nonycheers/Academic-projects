@@ -1,0 +1,39 @@
+/* Create abi for SYSCALLs */
+
+void enable_syscalls(){
+	*(unsigned char *)$D02F = $47;
+	*(unsigned char *)$D02F = $53;
+}
+/* Triggers SYSCALL $00 */
+void call_syscall00(){
+	enable_syscalls();
+	*(unsigned char *)$D640 = $00;
+	asm { nop }
+}
+
+/* Triggers SYSCALL $01 */
+void call_syscall01(){
+	enable_syscalls();
+	*(unsigned char *)$D641 = $00;
+	asm { nop }
+}
+
+/* print a string to the screen */
+
+void print_string( char *string){
+	unsigned char *mem=$0300;
+	while(*string){
+		*mem++ = *string++;
+	}
+	*mem++ = 0;
+	enable_syscalls();
+	*(unsigned char *)$D642 = $00;
+	asm { nop }
+
+}
+char *get_os_version(){
+	enable_syscalls();
+	*(unsigned char *)$D643 = $00;
+	asm { nop }
+	return "froschos 1.00";
+}

@@ -1,0 +1,646 @@
+// XMega65 Kernal Development Template
+// Each function of the Kernal is a no-args function
+// the function are placed in the SYSCALLS table surrounded by JMP AND NOP
+
+import "string"
+//Use a linker definition file (put the previous listing into that file)
+#pragma link("mega65hyper.ld")
+
+//Some definition of addresses and special values that this program uses
+
+const char* RASTER = 0xd012;
+const char* VIC_MEMORY = 0xd018;
+const char* SCREEN = 0x0400;
+const char* BGCOL = 0xd021;
+const char* COLS = 0xd800;
+
+const char BLACK = 0;
+const char WHITE = 1;
+
+char[] MESSAGE = "manu0083 operating system starting...";
+
+// void print_to_screen(char *message);
+unsigned char *current_screen_line = $0400;
+unsigned char current_screen_x = 0;
+
+
+
+
+
+void print_to_screen(char *message){
+
+	while(*message){
+	  *( current_screen_line + current_screen_x ) = *message++;
+	  current_screen_x++;
+	}
+
+}
+
+void print_newline(){
+	current_screen_line = current_screen_line + 40;
+	current_screen_x = 0;
+}
+
+void test_memory(){
+	volatile unsigned char *p;
+	bool is_mem_error = false;
+	unsigned short mem_start = $0800;
+	unsigned short mem_end = $0800;
+
+	for(mem_end; mem_end< $7FFF; mem_end++){
+		p = mem_end;
+		for(char value = 0; value< 255; value++){
+			if(!is_mem_error){
+				*p = value;
+				if (*p!=value) {
+					// We read back something different,
+					// so this memory location isn’t valid.
+					print_to_screen("memory error at ");
+					print_hex(mem_end);
+					print_newline();
+					is_mem_error = true;
+					mem_end -= mem_end;
+				}
+			}
+		}
+	}
+	print_newline();
+	print_to_screen("memory found at ");
+	print_hex(mem_start);
+	print_to_screen(" - ");
+	print_hex(mem_end);
+}
+
+void print_hex(unsigned short value)
+{
+	char[5] hex;
+	unsigned char i;
+	for(i=0;i<4;i++) {
+		if (value<0xa000) 
+			hex[i]='0'+(char)(value>>12);
+		else 
+			hex[i]=(char)(value>>12)-9;
+		value<<=4;
+	}
+	hex[4]=0;
+	print_to_screen(hex);
+}
+
+void detect_devices(){
+	unsigned short mem = $D000;
+	unsigned short new_mem = $D000;
+	unsigned short is_found_vicii = $0;
+	unsigned short is_found_mos6526 = $0;
+
+	while (mem < $DFF0) {
+		if(mem<=$D800 || mem>=$DBFF) {
+			is_found_vicii = detect_vicii(mem);
+			if (is_found_vicii > $0) {
+				print_newline();
+				print_to_screen("vic - ii detected at $");
+				print_hex(mem);
+				print_to_screen(" -- $");
+				print_hex(is_found_vicii);
+				mem = is_found_vicii;
+			}
+			is_found_mos6526 = detect_mos6526(mem);
+			if (is_found_mos6526>$0) {
+				print_newline();
+				print_to_screen("mos6526 detected at $");
+				print_hex(mem);
+				print_to_screen(" -- $");
+				print_hex(is_found_mos6526);
+				mem = is_found_mos6526;
+				is_found_mos6526 = $0;
+			}
+		}
+		mem++;
+	}
+	
+
+	print_newline();
+	print_to_screen("finished probing for devices");
+}
+
+unsigned short detect_mos6526(unsigned short address){
+	//Pointer where VIC-II is suspected to be 
+	unsigned char s1, s2, h;
+	unsigned long i;
+	volatile unsigned char *p;
+
+	p = address;
+	//check address is an hours field
+	s1 = p[$09];	//read second at the pointer
+	h = p[$0B];
+	
+	if(h>$01 && h<$23){
+		//print_to_screen("mos hour found");
+	}else{
+		return $0;
+	}
+
+	// Wait at least 64 microseconds.
+	for(i = 1; i<2000000; i++) continue;
+	s2 = p[$09];	//read again
+
+	if(s1!=s2){
+		return address + $FF;
+	}
+	else{
+		return $0;
+	}	
+}
+
+
+unsigned short detect_vicii(unsigned short address){
+	//Pointer where VIC-II is suspected to be 
+	unsigned char v1, v2;
+	unsigned short i;
+	unsigned short mem_size = $7F;
+	volatile unsigned char *pointer;
+
+	pointer = address;
+	v1=pointer[$12]; //Read start address + 12
+	// Wait at least 64 microseconds.
+	for(i = 1; i<1000; i++) continue;
+	v2=pointer[$12]; //Read again
+	
+	if(v1 != v2){
+		return address + mem_size;
+	}else{
+		return 0;
+	}
+}
+
+void reset(){
+	
+	//Initialize screen memory, and select correct font
+	*VIC_MEMORY = 0x14;
+	//Fill the screen with spaces
+	memset(SCREEN, ' ', 40*25);
+	//Set the colour of very character on the screen to white
+	memset(COLS, WHITE, 40*25);
+	//Print the "hello world!" message
+	//char* sc = SCREEN+40; //Display it one line down on the screen
+	char* msg = MESSAGE; //The message to display
+	
+
+	//checkpoint 3.1
+	print_to_screen("manu0083 operating system starting...");
+	print_newline();
+	print_to_screen("testing hardware");
+
+	//checkpoint 3.2
+	//test_memory();
+
+	//checkpoint 3.3
+	detect_devices();
+
+	
+     exit_hypervisor();
+}
+
+void main(){
+}
+
+// Here are a couple sample SYSCALL handlers that just display a character on the screen
+
+void syscall0(){
+ exit_hypervisor();
+}
+
+void syscall1(){
+  *(SCREEN+79) = ')';
+ exit_hypervisor();
+}
+
+void syscall2(){
+  *(SCREEN+78) = '(';
+ exit_hypervisor();
+}
+
+void syscall3(){
+ exit_hypervisor();
+}
+
+void syscall4(){
+  exit_hypervisor(); 
+}
+
+void syscall5(){
+ exit_hypervisor();
+}
+
+void syscall6(){
+ exit_hypervisor();
+}
+
+void syscall7(){
+   exit_hypervisor();
+}
+
+void syscall8(){
+   exit_hypervisor();
+}
+
+void syscall9(){
+   exit_hypervisor();
+}
+
+void syscallA(){
+   exit_hypervisor();
+}
+
+void syscallB(){
+   exit_hypervisor();
+}
+
+void syscallC(){
+ exit_hypervisor();
+}
+
+void syscallD(){
+   exit_hypervisor();
+}
+
+void syscallE(){
+   exit_hypervisor();
+}
+
+void syscallF(){
+   exit_hypervisor();
+}
+
+void syscall10(){
+   exit_hypervisor();
+}
+
+void securentr(){
+   exit_hypervisor();
+}
+
+void securexit(){
+   exit_hypervisor();
+}
+
+void syscall13(){
+   exit_hypervisor();
+}
+
+void syscall14(){
+  exit_hypervisor();
+}
+
+void syscall15(){
+   exit_hypervisor();
+}
+
+void syscall16(){
+   exit_hypervisor();
+}
+
+void syscall17(){
+   exit_hypervisor();
+}
+
+void syscall18(){
+   exit_hypervisor();
+}
+
+void syscall19(){
+   exit_hypervisor();
+}
+
+void syscall1A(){
+   exit_hypervisor();
+}
+
+void syscall1B(){
+ exit_hypervisor();
+}
+
+void syscall1C(){
+ exit_hypervisor();
+}
+
+void syscall1D(){
+ exit_hypervisor();
+}
+
+void syscall1E(){
+ exit_hypervisor();
+}
+
+void syscall1F(){
+ exit_hypervisor();
+}
+
+void syscall20(){
+ exit_hypervisor();
+}
+
+void syscall21(){
+ exit_hypervisor();
+}
+
+void syscall22(){
+   exit_hypervisor();
+}
+
+void syscall23(){
+   exit_hypervisor();
+}
+
+void syscall24(){
+   exit_hypervisor();
+}
+
+void syscall25(){
+ exit_hypervisor();
+}
+
+void syscall26(){
+ exit_hypervisor();
+}
+
+void syscall27(){
+   exit_hypervisor();
+}
+
+void syscall28(){
+   exit_hypervisor();
+}
+
+void syscall29(){
+   exit_hypervisor();
+}
+
+void syscall2A(){
+   exit_hypervisor();
+}
+
+void syscall2B(){
+   exit_hypervisor();
+}
+
+void syscall2C(){
+   exit_hypervisor();
+}
+
+void syscall2D(){
+   exit_hypervisor();
+}
+
+void syscall2E(){
+   exit_hypervisor();
+}
+
+void syscall2F(){
+   exit_hypervisor();
+}
+
+void syscall30(){
+   exit_hypervisor();
+}
+
+void syscall31(){
+  exit_hypervisor();
+}
+
+void syscall32(){
+   exit_hypervisor();
+}
+
+void syscall33(){
+   exit_hypervisor();
+}
+
+void syscall34(){
+   exit_hypervisor();
+}
+
+void syscall35(){
+   exit_hypervisor();
+}
+
+void syscall36(){
+   exit_hypervisor();
+}
+
+void syscall37(){
+   exit_hypervisor();
+}
+
+void syscall38(){
+   exit_hypervisor();
+}
+
+void syscall39(){
+   exit_hypervisor();
+}
+
+void syscall3A(){
+   exit_hypervisor();
+}
+
+void syscall3B(){
+   exit_hypervisor();
+}
+
+void syscall3C(){
+   exit_hypervisor();
+}
+
+void syscall3D(){
+ exit_hypervisor();
+}
+
+void syscall3E(){
+   exit_hypervisor();
+}
+
+void syscall3F(){
+   exit_hypervisor();
+}
+
+void restorekey(){
+
+}
+
+void alttabkey(){
+}
+
+void vf011rd(){
+
+}
+
+void vf011wr(){
+
+}
+
+void reserved(){
+
+}
+
+void cpukil(){
+
+}
+
+void undefined_trap(){
+
+}
+
+
+
+
+
+// Now we select the SYSCALL segment to hold the SYSCALL/trap entry point table.
+
+#pragma data_seg(Syscall)
+
+// The structure of each entry point is JMP <handler address> + NOP.
+// We have a char (xjmp) to hold the opcode for the JMP instruction,
+// and then put the address of the SYSCALL/trap handler in the next
+// two points as a pointer, and end with the NOP instruction opcode.
+struct SysCall{
+  char xjmp;       //Holds $4C, the JMP $NNN OPCODE
+  void()* syscall; //HOlds handler address, will be the target of the JMP
+  char xnop;       //Holds $EA, the NOP opcode
+};
+
+// To save writing 0x4C and 0xEA all the time, we define them as constants
+const char JMP = 0x4c;
+const char NOP = 0xea;
+
+// Now we can have a nice table of up to 64 SYSCALL hadlers expressed
+// in a fairly readable and easy format
+// Each line is a instance of the struct SysCall from above, with the JMP
+// opcode value, the address of the handler routine and the NOP opcode value.
+export struct SysCall[] SYSCALLS = {
+	{ JMP, &syscall1, NOP },
+	{ JMP, &syscall2, NOP },
+	{ JMP, &syscall3, NOP },
+	{ JMP, &syscall4, NOP },
+	{ JMP, &syscall5, NOP },
+	{ JMP, &syscall6, NOP },
+	{ JMP, &syscall7, NOP },
+	{ JMP, &syscall8, NOP },
+	{ JMP, &syscall9, NOP },
+	{ JMP, &syscallA, NOP },
+	{ JMP, &syscallB, NOP },
+	{ JMP, &syscallC, NOP },
+	{ JMP, &syscallD, NOP },
+	{ JMP, &syscallE, NOP },
+	{ JMP, &syscallF, NOP },
+	{ JMP, &syscall10, NOP },
+	{ JMP, &securentr, NOP },
+	{ JMP, &securexit, NOP },
+	{ JMP, &syscall13, NOP },
+	{ JMP, &syscall14, NOP },
+	{ JMP, &syscall15, NOP },
+	{ JMP, &syscall16, NOP },
+	{ JMP, &syscall17, NOP },
+	{ JMP, &syscall18, NOP },
+	{ JMP, &syscall19, NOP },
+	{ JMP, &syscall1A, NOP },
+	{ JMP, &syscall1B, NOP },
+	{ JMP, &syscall1C, NOP },
+	{ JMP, &syscall1D, NOP },
+	{ JMP, &syscall1E, NOP },
+	{ JMP, &syscall1F, NOP },
+	{ JMP, &syscall20, NOP },
+	{ JMP, &syscall21, NOP },
+	{ JMP, &syscall22, NOP },
+	{ JMP, &syscall23, NOP },
+	{ JMP, &syscall24, NOP },
+	{ JMP, &syscall25, NOP },
+	{ JMP, &syscall26, NOP },
+	{ JMP, &syscall27, NOP },
+	{ JMP, &syscall28, NOP },
+	{ JMP, &syscall29, NOP },
+	{ JMP, &syscall2A, NOP },
+	{ JMP, &syscall2B, NOP },
+	{ JMP, &syscall2C, NOP },
+	{ JMP, &syscall2D, NOP },
+	{ JMP, &syscall2E, NOP },
+	{ JMP, &syscall2F, NOP },
+	{ JMP, &syscall30, NOP },
+	{ JMP, &syscall31, NOP },
+	{ JMP, &syscall32, NOP },
+	{ JMP, &syscall33, NOP },
+	{ JMP, &syscall34, NOP },
+	{ JMP, &syscall35, NOP },
+	{ JMP, &syscall36, NOP },
+	{ JMP, &syscall37, NOP },
+	{ JMP, &syscall38, NOP },
+	{ JMP, &syscall39, NOP },
+	{ JMP, &syscall3A, NOP },
+	{ JMP, &syscall3B, NOP },
+	{ JMP, &syscall3C, NOP },
+	{ JMP, &syscall3D, NOP },
+	{ JMP, &syscall3E, NOP },
+	{ JMP, &syscall3F, NOP },
+	{ JMP, &syscall0, NOP }
+};
+
+// In this example we had only to SYSCALLS defined, so rather than having
+// another 62 lines, we can just ask KickC to make the TRAP table begin
+// at the next multiple of $100, i.e., at $8100.
+export align(0x100) struct SysCall[] TRAPS = {
+{JMP, &reset, NOP},
+{JMP, &restorekey, NOP},
+{JMP, &alttabkey, NOP},
+{JMP, &vf011rd, NOP},
+{JMP, &vf011wr, NOP},
+{JMP, &reserved, NOP},
+{JMP, &cpukil, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP},
+{JMP, &undefined_trap, NOP}
+};
+
+void exit_hypervisor()
+{
+	//trigger exit form Hypervisor model
+	*(unsigned char *)$D67F = $01;
+}

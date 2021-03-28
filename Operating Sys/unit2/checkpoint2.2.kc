@@ -1,0 +1,200 @@
+// XMega65 Kernal Development Template
+// Each function of the Kernal is a no-args function
+// the function are placed in the SYSCALLS table surrounded by JMP AND NOP
+
+import "string"
+//Use a linker definition file (put the previous listing into that file)
+#pragma link("mega65hyper.ld")
+
+//Some definition of addresses and special values that this program uses
+
+const char* RASTER = 0xd012;
+const char* VIC_MEMORY = 0xd018;
+const char* SCREEN = 0x0400;
+const char* BGCOL = 0xd021;
+const char* COLS = 0xd800;
+
+const char BLACK = 0;
+const char WHITE = 1;
+
+char[] MESSAGE = "checkpoint 2.2 by manu0083";
+
+void main(){
+	//Initialize screen memory, and select correct font
+	*VIC_MEMORY = 0x14;
+	//Fill the screen with spaces
+	memset(SCREEN, ' ', 40*25);
+	//Set the colour of very character on the screen to white
+	memset(COLS, WHITE, 40*25);
+	//Print the "hello world!" message
+	char* sc = SCREEN+40; //Display it one line down on the screen
+	char* msg = MESSAGE; //The message to display
+	//A simple copy routine to copy the string
+	while(*msg){
+	  *sc++ = *msg++;
+	}
+	//loop forever showing two white lines as raster bars
+	while(true){
+	  if(*RASTER==54 || *RASTER==66){
+	    *BGCOL = WHITE;
+	  }else {
+	    *BGCOL = BLACK;
+	  }
+	}
+}
+
+// Here are a couple sample SYSCALL handlers that just display a character on the screen
+void syscall1(){
+  *(SCREEN+79) = ')';
+}
+
+void syscall2(){
+  *(SCREEN+78) = '(';
+}
+
+// Now we select the SYSCALL segment to hold the SYSCALL/trap entry point table.
+
+#pragma data_seg(Syscall)
+
+// The structure of each entry point is JMP <handler address> + NOP.
+// We have a char (xjmp) to hold the opcode for the JMP instruction,
+// and then put the address of the SYSCALL/trap handler in the next
+// two points as a pointer, and end with the NOP instruction opcode.
+struct SysCall{
+  char xjmp;       //Holds $4C, the JMP $NNN OPCODE
+  void()* syscall; //HOlds handler address, will be the target of the JMP
+  char xnop;       //Holds $EA, the NOP opcode
+};
+
+// To save writing 0x4C and 0xEA all the time, we define them as constants
+const char JMP = 0x4c;
+const char NOP = 0xea;
+
+// Now we can have a nice table of up to 64 SYSCALL hadlers expressed
+// in a fairly readable and easy format
+// Each line is a instance of the struct SysCall from above, with the JMP
+// opcode value, the address of the handler routine and the NOP opcode value.
+export struct SysCall[] SYSCALLS = {
+  { JMP, &syscall1, NOP },
+  { JMP, &syscall2, NOP },
+  { JMP, &syscall1, NOP },
+  { JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP },
+{ JMP, &syscall2, NOP }
+};
+
+// In this example we had only to SYSCALLS defined, so rather than having
+// another 62 lines, we can just ask KickC to make the TRAP table begin
+// at the next multiple of $100, i.e., at $8100.
+export align(0x100) struct SysCall[] TRAPS = {
+  {JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP},
+{JMP, &main, NOP}
+};
+
+

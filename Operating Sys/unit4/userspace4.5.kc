@@ -1,0 +1,10 @@
+/* API that wraps the SYSCALL ABI */
+import "myabi"
+
+void main()
+{
+	char os_return = (char*)get_os_version();
+	print_string("os version is ");
+	print_string(os_return);
+	while(true) continue;
+}
